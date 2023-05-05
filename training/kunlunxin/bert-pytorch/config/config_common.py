@@ -77,5 +77,5 @@ dwu_e5m2_allgather: bool = False
 # the apex optimization level, value: [O1, O2]
 opt_level: str = "O2"
 
-from torch.cuda.amp import GradScaler
-grad_scaler = GradScaler(enabled=False)
+from torch_xmlir.amp import GradScaler
+grad_scaler = GradScaler(enabled=True)

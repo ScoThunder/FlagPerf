@@ -95,7 +95,7 @@ class Trainer():
                 step_total_time = step_end_time - step_start_time
                 step_start_time = step_end_time
                 sequences_per_second = (
-                    utils.global_batch_size(config) *
+                    dist_pytorch.global_batch_size(config) *
                     config.gradient_accumulation_steps) / step_total_time
                 other_state["seq/s"] = sequences_per_second
 
@@ -146,11 +146,12 @@ class Trainer():
             state.loss, state.mlm_acc, num_valid = self.forward(batch)
         self.adapter.backward(state.global_steps, state.loss, self.optimizer,
                               self.grad_scaler)
-        #print(self.grad_scaler._scale)
+#print(self.grad_scaler._scale)
+#print(self.grad_scaler)
         self.lr_scheduler.step()
         # import torch_xmlir.debug.metrics as met 
         # print(met.metrics_report())
-        #exit()
+        # exit()
 
     def detect_training_status(self, state: TrainingState):
         if state.eval_mlm_accuracy >= config.target_mlm_accuracy:

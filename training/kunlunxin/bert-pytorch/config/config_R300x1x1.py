@@ -33,5 +33,3 @@ dwu_num_ar_pg = 1
 dwu_num_blocks = 1
 
 seed = 9031
-from torch_xmlir.amp import GradScaler
-grad_scaler = GradScaler(enabled=True, init_scale=2048.)

@@ -72,8 +72,8 @@ def model_to_fp16(model: BERT_MODEL,
 
 def model_to_ddp(model: BERT_MODEL) -> BERT_MODEL:
     use_ddp = dist.is_initialized()
-    if use_ddp and config.use_xpu:
-        from torch_xmlir.distributed import DistributedDataParallel as DDP
+    if use_ddp:
+        from torch.nn.parallel import DistributedDataParallel as DDP
         model = DDP(model)
     return model
 
