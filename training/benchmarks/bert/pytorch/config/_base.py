@@ -2,9 +2,12 @@ from typing import ClassVar
 
 # chip vendor: nvidia, kunlunxin, iluvatar, cambricon etc. key vendor is required.
 vendor: str = None
+# model name
+name: str = "Bert"
 
 # The train dir. Should contain train_dir, eval_dir, init_checkpoint, bert_config_path for the task.
-data_dir: str = None
+#data_dir: str = "/home/FlagPerf/training/benchmarks/bert/pytorch/dataset"
+data_dir: str = "/home/data/bert"
 
 # The train dir. Should contain .hdf5 files  for the task.
 train_dir: str = None
@@ -85,7 +88,7 @@ warmup_steps: int = 0
 start_warmup_step: int = 0
 
 # local_rank for distributed training on gpus
-local_rank: int = -1
+local_rank: int = 0
 
 # Communication backend for distributed training on gpus
 dist_backend: str = "nccl"

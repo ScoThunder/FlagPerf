@@ -4,10 +4,10 @@ from typing import Tuple
 import torch
 import torch.distributed as dist
 
-from torch.cuda.amp import GradScaler
+from torch_xmlir.amp import GradScaler
 from torch.nn.parallel import DistributedDataParallel as NativeDDP
 from torch.optim import Optimizer
-from torch_xmlir.optimizer import Lamb
+from torch_xmlir.optimizer import FusedLAMB, Lamb
 
 import torch_xmlir.core.xpu_model as xm
 
@@ -57,7 +57,7 @@ def create_optimizer(model: BERT_MODEL) -> Optimizer:
         #                                 e5m2_allgather=config.dwu_e5m2_allgather)
         #optimizer.set_global_scale(float(os.getenv("INIT_LOSS_SCALE", 2 ** 20)))
     else:
-        optimizer = Lamb(optimizer_grouped_parameters,
+        optimizer = FusedLAMB(optimizer_grouped_parameters,
                          lr=config.learning_rate,
                          betas=(config.opt_lamb_beta_1,
                                 config.opt_lamb_beta_2))
@@ -67,7 +67,7 @@ def create_optimizer(model: BERT_MODEL) -> Optimizer:
 
 def model_to_fp16(model: BERT_MODEL,
                   optimizer: Optimizer) -> Tuple[BERT_MODEL, Optimizer]:
-    return model, optimizer
+    return model.half(), optimizer
 
 
 def model_to_ddp(model: BERT_MODEL) -> BERT_MODEL:
@@ -83,7 +83,8 @@ def backward(step: int,
              optimizer: Optimizer,
              grad_scaler: GradScaler = None):
     if config.bypass_amp:
-        loss.backward()
+        grad_scaler.scale(loss).backward()
+        #loss.backward()
     elif config.distributed_lamb:
         optimizer._lazy_init_stage1()
         grad_scaler.scale(loss).backward()
@@ -143,6 +144,7 @@ def update_model_params(loss,
         #                         [allreduced_views, master_grads],
         #                         1. / scaler.loss_scale())
         # 5. update loss scale
+        print("we are here")
         had_overflow = 0
         #scaler = _amp_state.loss_scalers[0]
         #old_overflow_buf = scaler._overflow_buf
@@ -151,8 +153,8 @@ def update_model_params(loss,
         #scaler._overflow_buf = old_overflow_buf
         # 6. call optimizer step function
         if had_overflow == 0:
-            # optimizer.step()
-            xm.optimizer_step(optimizer, barrier=True)
+            optimizer.step()
+            #xm.optimizer_step(optimizer, barrier=True)
         else:
             # Overflow detected, print message and clear gradients
             if utils.is_main_process():
@@ -162,6 +164,9 @@ def update_model_params(loss,
                 for param in optimizer._amp_stash.all_fp32_from_fp16_params:
                     param.grad = None
     else:
-        xm.optimizer_step(optimizer, barrier=True)
+        grad_scaler.step(optimizer)
+        grad_scaler.update()
+        #optimizer.step()
+        #xm.optimizer_step(optimizer, barrier=True)
 
     optimizer.zero_grad()

@@ -157,9 +157,14 @@ def barrier(vendor="nvidia"):
 def init_dist_training_env(config):
     ''' TODO: Support other accelarators.  '''
     if config.vendor == "kunlunxin":
+        import torch_xmlir
         import torch_xmlir.core.xpu_model as xm
         if int(os.environ.get("WORLD_SIZE", 1)) <= 1:
-            config.device = xm.xpu_device()
+            #config.device = xm.xpu_device(eager=True)
+            from hyperparameter import param_scope
+            with param_scope() as ps:
+                ps.xacc.eager = "true"
+                config.device = torch_xmlir.device("xpu:0")
             config.n_device = 1
         else:
             config.device = xm.xpu_device(config.local_rank)

@@ -138,6 +138,9 @@ class Trainer:
         state.num_trained_samples = epoch_start_num_sample
 
         self.lr_scheduler.step()
+
+        if dist_pytorch.is_main_process():
+            torch.save(self.model.state_dict(), f'./checkpoint/mobilenet_epoch{state.epoch}.pth')
         driver.event(Event.EPOCH_END, state.epoch)
 
     def train_one_step(self, batch):

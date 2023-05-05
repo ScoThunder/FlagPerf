@@ -2,9 +2,8 @@ import math
 import time
 import os
 import sys
-
 import torch
-from torch.cuda.amp import GradScaler
+from torch_xmlir.amp import GradScaler
 from torch.types import Device
 
 import config
@@ -20,6 +19,12 @@ CURR_PATH = os.path.abspath(os.path.dirname(__file__))
 sys.path.append(os.path.abspath(os.path.join(CURR_PATH, "../../../")))
 from driver import Driver, Event, dist_pytorch
 
+def hook_backward_fn(module, grad_input, grad_output):
+    print(f"module: {module}")
+    print(f"grad_output: {grad_output}")
+    print(f"grad_input: {grad_input}")
+    print("*"*20)
+    exit()
 
 class Trainer():
 
@@ -41,11 +46,14 @@ class Trainer():
 
     def init(self):
         self.bert_config, self.model = create_model(config)
+        # self.model.bert_model_segment.bert.encoder.layer[1].output.dropout.register_backward_hook(hook_backward_fn)
+        #self.model.bert_model_segment.bert.encoder.layer[18].output.dropout.register_backward_hook(hook_backward_fn)
+
         self.model = self._init_model(self.model, self.device)
         self.model = self.adapter.convert_model(self.model)
         self.optimizer = self.adapter.create_optimizer(self.model)
-        self.model, self.optimizer = self.adapter.model_to_fp16(
-            self.model, self.optimizer)
+        # self.model, self.optimizer = self.adapter.model_to_fp16(
+        #     self.model, self.optimizer)
         self.model = self.adapter.model_to_ddp(self.model)
         self.lr_scheduler = create_scheduler(self.optimizer)
 
@@ -132,10 +140,17 @@ class Trainer():
 
         state = self.training_state
         self.model.train()
-        state.loss, state.mlm_acc, _ = self.forward(batch)
+        from torch_xmlir.amp import autocast
+        with autocast(enabled=True):
+            #state.loss, state.mlm_acc, _ = self.forward(batch)
+            state.loss, state.mlm_acc, num_valid = self.forward(batch)
         self.adapter.backward(state.global_steps, state.loss, self.optimizer,
                               self.grad_scaler)
+        #print(self.grad_scaler._scale)
         self.lr_scheduler.step()
+        # import torch_xmlir.debug.metrics as met 
+        # print(met.metrics_report())
+        #exit()
 
     def detect_training_status(self, state: TrainingState):
         if state.eval_mlm_accuracy >= config.target_mlm_accuracy:

@@ -9,7 +9,7 @@ cuda_graph_mode: str = "segmented"
 max_iterations_per_graph: int = 4
 
 # Whether to do allreduces during gradient accumulation steps.
-allreduce_post_accumulation: bool = True
+allreduce_post_accumulation: bool = False
 
 # Whether to do fp16 allreduce post accumulation.
 allreduce_post_accumulation_fp16: bool = False
@@ -76,3 +76,6 @@ dwu_e5m2_allgather: bool = False
 
 # the apex optimization level, value: [O1, O2]
 opt_level: str = "O2"
+
+from torch.cuda.amp import GradScaler
+grad_scaler = GradScaler(enabled=False)

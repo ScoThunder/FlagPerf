@@ -7,7 +7,7 @@ dist_backend = "xccl"
 use_xpu = True
 use_env = True
 gradient_accumulation_steps = 1
-train_batch_size = 12
+train_batch_size = 8
 max_steps = 1000000
 start_warmup_step = 0
 warmup_proportion = 0
@@ -33,3 +33,5 @@ dwu_num_ar_pg = 1
 dwu_num_blocks = 1
 
 seed = 9031
+from torch_xmlir.amp import GradScaler
+grad_scaler = GradScaler(enabled=True, init_scale=2048.)
