@@ -141,7 +141,7 @@ class Trainer():
         state = self.training_state
         self.model.train()
         from torch_xmlir.amp import autocast
-        with autocast(enabled=False):
+        with autocast(enabled=True):
             #state.loss, state.mlm_acc, _ = self.forward(batch)
             state.loss, state.mlm_acc, num_valid = self.forward(batch)
         self.adapter.backward(state.global_steps, state.loss, self.optimizer,
