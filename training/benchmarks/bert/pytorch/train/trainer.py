@@ -81,7 +81,7 @@ class Trainer():
         step_start_time = time.time()
         for dataloader_idx, batch_idx, batch in dataloader.iter_batchs():
 
-            state.num_trained_samples = state.global_steps * utils.global_batch_size(
+            state.num_trained_samples = state.global_steps * dist_pytorch.global_batch_size(
                 config)
 
             state.global_steps += 1
@@ -141,7 +141,7 @@ class Trainer():
         state = self.training_state
         self.model.train()
         from torch_xmlir.amp import autocast
-        with autocast(enabled=True):
+        with autocast(enabled=False):
             #state.loss, state.mlm_acc, _ = self.forward(batch)
             state.loss, state.mlm_acc, num_valid = self.forward(batch)
         self.adapter.backward(state.global_steps, state.loss, self.optimizer,
@@ -168,7 +168,7 @@ class Trainer():
             state.num_trained_samples >= config.eval_iter_start_samples,
             state.global_steps %
             math.ceil(config.eval_interval_samples /
-                      utils.global_batch_size(config)) == 0,
+                      dist_pytorch.global_batch_size(config)) == 0,
             config.eval_interval_samples > 0,
             state.global_steps > 1,
         ])
