@@ -10,6 +10,7 @@ def create_model(config):
     bert_config.dense_seq_output = config.dense_seq_output
     bert_config.fuse_dropout = config.enable_fuse_dropout
     bert_config.fused_dropout_add = config.fused_dropout_add
+    bert_config.custom_linear = config.custom_linear
 
     # Padding for divisibility by 8
     if bert_config.vocab_size % 8 != 0:

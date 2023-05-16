@@ -35,6 +35,7 @@ from torch.nn import LayerNorm as BertLayerNorm
 
 from model.layers.activations import ACT2FN
 from model.layers.embeddings import BertEmbeddings
+from model.layers.custom_linear import CustomLinear
 from utils import get_rank
 
 logger = logging.getLogger(__name__)
@@ -351,10 +352,14 @@ class BertSelfAttention(nn.Module):
         self.attention_head_size = int(config.hidden_size /
                                        config.num_attention_heads)
         self.all_head_size = self.num_attention_heads * self.attention_head_size
-
-        self.query = nn.Linear(config.hidden_size, self.all_head_size)
-        self.key = nn.Linear(config.hidden_size, self.all_head_size)
-        self.value = nn.Linear(config.hidden_size, self.all_head_size)
+        if config.custom_linear:
+            self.query = CustomLinear(config.hidden_size, self.all_head_size)
+            self.key = CustomLinear(config.hidden_size, self.all_head_size)
+            self.value = CustomLinear(config.hidden_size, self.all_head_size)
+        else:
+            self.query = nn.Linear(config.hidden_size, self.all_head_size)
+            self.key = nn.Linear(config.hidden_size, self.all_head_size)
+            self.value = nn.Linear(config.hidden_size, self.all_head_size)
 
         self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
         self.softmax = nn.Softmax(dim=-1)
@@ -410,7 +415,10 @@ class BertSelfOutput(nn.Module):
 
     def __init__(self, config):
         super(BertSelfOutput, self).__init__()
-        self.dense = nn.Linear(config.hidden_size, config.hidden_size)
+        if config.custom_linear:
+            self.dense = CustomLinear(config.hidden_size, config.hidden_size)
+        else:
+            self.dense = nn.Linear(config.hidden_size, config.hidden_size)
         self.LayerNorm = BertLayerNorm(config.hidden_size, eps=1e-12)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
 
@@ -444,7 +452,11 @@ class BertIntermediate(nn.Module):
                                           config.intermediate_size,
                                           act=config.hidden_act)
         else:
-            self.dense = nn.Linear(config.hidden_size,
+            if config.custom_linear:
+                self.dense = CustomLinear(config.hidden_size,
+                                            config.intermediate_size)
+            else:
+                self.dense = nn.Linear(config.hidden_size,
                                    config.intermediate_size)
             if isinstance(config.hidden_act,
                           str) or (sys.version_info[0] == 2
@@ -465,7 +477,11 @@ class BertOutput(nn.Module):
     def __init__(self, config):
         super(BertOutput, self).__init__()
         if not config.fused_dropout_add:
-            self.dense = nn.Linear(config.intermediate_size,
+            if config.custom_linear:
+                self.dense = CustomLinear(config.intermediate_size,
+                                            config.hidden_size)
+            else:
+                self.dense = nn.Linear(config.intermediate_size,
                                    config.hidden_size)
         else:
             self.dense = LinearDropoutAdd(config.intermediate_size,
@@ -532,7 +548,11 @@ class BertPooler(nn.Module):
 
     def __init__(self, config):
         super(BertPooler, self).__init__()
-        self.dense = nn.Linear(config.hidden_size, config.hidden_size)
+        if config.custom_linear:
+            self.dense = CustomLinear(config.hidden_size,
+                                        config.hidden_size)
+        else:
+            self.dense = nn.Linear(config.hidden_size, config.hidden_size)
         self.activation = nn.Tanh()
 
     def forward(self, hidden_states):
@@ -548,7 +568,11 @@ class BertPredictionHeadTransform(nn.Module):
 
     def __init__(self, config):
         super(BertPredictionHeadTransform, self).__init__()
-        self.dense = nn.Linear(config.hidden_size, config.hidden_size)
+        if config.custom_linear:
+            self.dense = CustomLinear(config.hidden_size,
+                                        config.hidden_size)
+        else:
+            self.dense = nn.Linear(config.hidden_size, config.hidden_size)
         if isinstance(config.hidden_act,
                       str) or (sys.version_info[0] == 2
                                and isinstance(config.hidden_act, unicode)):
@@ -572,7 +596,12 @@ class BertLMPredictionHead(nn.Module):
 
         # The output weights are the same as the input embeddings, but there is
         # an output-only bias for each token.
-        self.decoder = nn.Linear(bert_model_embedding_weights.size(1),
+        if config.custom_linear:
+            self.decoder = CustomLinear(bert_model_embedding_weights.size(1),
+                                 bert_model_embedding_weights.size(0),
+                                 bias=False)
+        else:
+            self.decoder = nn.Linear(bert_model_embedding_weights.size(1),
                                  bert_model_embedding_weights.size(0),
                                  bias=False)
         self.decoder.weight = bert_model_embedding_weights
@@ -601,7 +630,10 @@ class BertOnlyNSPHead(nn.Module):
 
     def __init__(self, config):
         super(BertOnlyNSPHead, self).__init__()
-        self.seq_relationship = nn.Linear(config.hidden_size, 2)
+        if config.custom_linear:
+            self.seq_relationship = CustomLinear(config.hidden_size, 2)
+        else:
+            self.seq_relationship = nn.Linear(config.hidden_size, 2)
 
     def forward(self, pooled_output):
         seq_relationship_score = self.seq_relationship(pooled_output)
@@ -614,7 +646,10 @@ class BertPreTrainingHeads(nn.Module):
         super(BertPreTrainingHeads, self).__init__()
         self.predictions = BertLMPredictionHead(config,
                                                 bert_model_embedding_weights)
-        self.seq_relationship = nn.Linear(config.hidden_size, 2)
+        if config.custom_linear:
+            self.seq_relationship = CustomLinear(config.hidden_size, 2)
+        else:
+            self.seq_relationship = nn.Linear(config.hidden_size, 2)
         self.dense_seq_output = config.dense_seq_output
 
     def forward(self, sequence_output, pooled_output, masked_lm_labels):
@@ -1291,7 +1326,10 @@ class BertForSequenceClassification(BertPreTrainedModel):
         self.num_labels = num_labels
         self.bert = BertModel(config)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
-        self.classifier = nn.Linear(config.hidden_size, num_labels)
+        if config.custom_linear:
+            self.classifier = CustomLinear(config.hidden_size, num_labels)
+        else:
+            self.classifier = nn.Linear(config.hidden_size, num_labels)
         self.apply(self.init_bert_weights)
 
     def forward(self,
@@ -1365,7 +1403,10 @@ class BertForMultipleChoice(BertPreTrainedModel):
         self.num_choices = num_choices
         self.bert = BertModel(config)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
-        self.classifier = nn.Linear(config.hidden_size, 1)
+        if config.custom_linear:
+            self.classifier = CustomLinear(config.hidden_size, 1)
+        else:
+            self.classifier = nn.Linear(config.hidden_size, 1)
         self.apply(self.init_bert_weights)
 
     def forward(self,
@@ -1444,7 +1485,10 @@ class BertForTokenClassification(BertPreTrainedModel):
         self.num_labels = num_labels
         self.bert = BertModel(config)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
-        self.classifier = nn.Linear(config.hidden_size, num_labels)
+        if config.custom_linear:
+            self.classifier = CustomLinear(config.hidden_size, num_labels)
+        else:
+            self.classifier = nn.Linear(config.hidden_size, num_labels)
         self.apply(self.init_bert_weights)
 
     def forward(self,
@@ -1528,7 +1572,10 @@ class BertForQuestionAnswering(BertPreTrainedModel):
         super(BertForQuestionAnswering, self).__init__(config)
         self.bert = BertModel(config)
         # self.dropout = nn.Dropout(config.hidden_dropout_prob)
-        self.qa_outputs = nn.Linear(config.hidden_size, 2)
+        if config.custom_linear:
+            self.qa_outputs = CustomLinear(config.hidden_size, 2)
+        else:
+            self.qa_outputs = nn.Linear(config.hidden_size, 2)
         self.apply(self.init_bert_weights)
 
     def forward(self,

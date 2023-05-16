@@ -144,6 +144,8 @@ disable_fuse_mask: bool = False
 # Whether to run with optimizations.
 fused_gelu_bias: bool = False
 
+custom_linear: bool = False
+
 use_xpu: bool = False
 # Whether to run with optimizations.
 fused_dropout_add: bool = False
@@ -178,3 +180,4 @@ n_device: int = 1
 n_gpu: int = 1
 
 eval_interval_samples: int = 0
+
