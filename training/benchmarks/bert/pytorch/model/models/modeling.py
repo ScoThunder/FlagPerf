@@ -35,7 +35,8 @@ from torch.nn import LayerNorm as BertLayerNorm
 
 from model.layers.activations import ACT2FN
 from model.layers.embeddings import BertEmbeddings
-from model.layers.custom_linear import CustomLinear
+#from model.layers.custom_linear import CustomLinear
+from torch_xmlir.nn.linear import Linear as CustomLinear
 from utils import get_rank
 
 logger = logging.getLogger(__name__)

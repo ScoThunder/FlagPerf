@@ -34,4 +34,4 @@ dwu_num_blocks = 1
 
 seed = 9031
 
-custom_linear = True
+

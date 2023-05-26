@@ -9,11 +9,11 @@ class CustomLinearFunction(torch.autograd.Function):
     @staticmethod
     def forward(ctx, input:torch.Tensor, weight:torch.Tensor, bias:torch.Tensor=None):
         ctx.save_for_backward(input, weight, bias)
-        if bias is None:
-            bias = torch.zeros(weight.shape[0], dtype=torch.float32, device=weight.device)
-        output = torch.empty(input.shape[0], weight.shape[0], dtype=input.dtype, device=input.device)
-        torch.ops.custom_ops.fc_fusion(input, weight, output, bias, w_trans=True)
-        return output
+        # if bias is None:
+        #     bias = torch.zeros(weight.shape[0], dtype=torch.float32, device=weight.device)
+        # output = torch.empty(input.shape[0], weight.shape[0], dtype=input.dtype, device=input.device)
+        # torch.ops.custom_ops.fc_fusion(input, weight, output, bias, w_trans=True)
+        return torch.ops.custom_ops.fc_with_trans_bias(input, weight, bias, w_trans=True)
 
     @staticmethod
     def backward(ctx, grad_output):
@@ -29,13 +29,15 @@ class CustomLinearFunction(torch.autograd.Function):
         # exit()
         grad_input = grad_weight = grad_bias = None
         if ctx.needs_input_grad[0]:
-            grad_input = torch.empty_like(input)
-            dump_bias = torch.zeros(input.shape[1], dtype=input.dtype, device=input.device)
-            torch.ops.custom_ops.fc_fusion(grad_output, weight, grad_input, dump_bias)
+            # grad_input = torch.empty_like(input)
+            # dump_bias = torch.zeros(input.shape[1], dtype=input.dtype, device=input.device)
+            # torch.ops.custom_ops.fc_fusion(grad_output, weight, grad_input, dump_bias)
+            grad_input = torch.ops.custom_ops.fc_with_trans_bias(grad_output, weight)
         if ctx.needs_input_grad[1]:
-            grad_weight = torch.empty_like(weight)
-            dump_bias = torch.zeros(weight.shape[1], dtype=weight.dtype, device=weight.device)
-            torch.ops.custom_ops.fc_fusion(grad_output, input, grad_weight, dump_bias, x_trans=True)
+            # grad_weight = torch.empty_like(weight)
+            # dump_bias = torch.zeros(weight.shape[1], dtype=weight.dtype, device=weight.device)
+            # torch.ops.custom_ops.fc_fusion(grad_output, input, grad_weight, dump_bias, x_trans=True)
+            grad_weight = torch.ops.custom_ops.fc_with_trans_bias(grad_output, input, x_trans=True)
         if bias is not None and ctx.needs_input_grad[2]:
             grad_bias = grad_output.sum(dim=0)
         return grad_input, grad_weight, grad_bias
@@ -47,7 +49,7 @@ class CustomLinear(torch.nn.Linear):
     def forward(self, input: Tensor) -> Tensor:
         if input.dtype == torch.float16:
             weight = self.weight.to(torch.float16)
-        elif torch_xmlir._XMLIRC.is_autocast_cache_enabled():
+        elif torch_xmlir._XMLIRC.is_autocast_enabled():
             input = input.to(torch.float16)
             weight = self.weight.to(torch.float16)
         else:

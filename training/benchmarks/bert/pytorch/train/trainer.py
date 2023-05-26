@@ -151,7 +151,6 @@ class Trainer():
         self.lr_scheduler.step()
         # import torch_xmlir.debug.metrics as met 
         # print(met.metrics_report())
-        exit()
 
     def detect_training_status(self, state: TrainingState):
         if state.eval_mlm_accuracy >= config.target_mlm_accuracy:

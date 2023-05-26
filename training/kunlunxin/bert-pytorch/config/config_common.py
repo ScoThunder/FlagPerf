@@ -78,6 +78,8 @@ dwu_e5m2_allgather: bool = False
 opt_level: str = "O2"
 
 use_amp = True
+# custom_linear = True
+custom_linear = True
 
 from torch_xmlir.amp import GradScaler
 grad_scaler = GradScaler(enabled=use_amp, init_scale=1024.)
